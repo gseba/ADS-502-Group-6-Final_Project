@@ -1,0 +1,270 @@
+---
+title: "ADS-502-Group-6-Final_Project"
+output: html_document
+date: "`r Sys.Date()`"
+ markdown: 
+    wrap: sentence
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# ADS 502 Applied Data Mining Final Group Project
+
+## Group 6
+
+### Dip Raj Bista + Logan Van Dine + Ghassan Seba
+
+*`This data mining project aims to assist a mobile phone company in estimating the price range of their products based on various features such as RAM, Internal Memory, etc. By analyzing historical sales data from different mobile phone companies, the project seeks to uncover relationships between multiple features and ‘selling price.’ The objective is to provide actionable insights enabling the company to price their mobile phones appropriately and become more competitive while utilizing a classification model.`*
+
+### Import dataset and describe characteristics such as dimensions, data types, file types, missing data, and statistical description of data.
+
+```{r}
+# Load data files
+mobileTrain <- read.csv("train.csv", header = TRUE)
+mobileTest <- read.csv("test.csv", header = TRUE)
+```
+
+```{r}
+# Find training data set dimensions
+dimenTrain <- dim(mobileTrain)
+print(dimenTrain)
+```
+
+```{r}
+# Find testing data set dimensions
+dimenTest <- dim(mobileTest)
+print(dimenTest)
+```
+
+```{r}
+# suppressMessages()
+suppressMessages({
+  
+# Load conflicted package 
+library(conflicted)
+  
+# Load the tidyverse package
+library(tidyverse)
+
+# Get the column names and data types
+colnamesTrain <- colnames(mobileTrain)
+dtypeTrain <- sapply(mobileTrain, class)
+
+# Clean the output
+colnamesTrain <- str_pad(colnamesTrain, 10, side = "left")
+dtypeTrain <- str_pad(dtypeTrain, 10, side = "left")
+
+# Combine the two into a single data frame
+df <- tibble(
+  colname = colnamesTrain,
+  dtype = dtypeTrain
+)
+
+# Print the data frame
+print(df)
+})
+```
+
+```{r}
+# Load the tidyverse package
+library(tidyverse)
+
+# Get the column names and data types
+colnamesTest <- colnames(mobileTest)
+dtypeTest <- sapply(mobileTest, class)
+
+# Clean the output
+colnamesTest <- str_pad(colnamesTest, 10, side = "left")
+dtypeTest <- str_pad(dtypeTest, 10, side = "left")
+
+# Combine the two into a single data frame
+df <- tibble(
+  colname = colnamesTest,
+  dtype = dtypeTest
+)
+
+# Print the data frame
+print(df)
+
+```
+
+```{r}
+# Display summary statistics for the training data set
+summaryTrain <- summary(mobileTrain)
+
+print(summaryTrain)
+
+```
+
+```{r}
+# Display summary statistics for the training data set
+summaryTest<- summary(mobileTest)
+
+print(summaryTest)
+```
+
+```{r}
+# Get the sum of missing values for each column
+missingTrain <- colSums(is.na(mobileTrain))
+
+# Column names
+trainColumnNames <- names(missingTrain)
+
+# Create a new data frame with column names and missing value counts
+missingTrainTable <- data.frame(Column = trainColumnNames, MissingTrainCount = missingTrain)
+
+# Print the tidy table to the console
+cat(sprintf("%-15s %-15s\n", "Column Name", "NA Count"))
+cat("---------------------------\n")
+for (i in seq_along(missingTrainTable$Column)) {
+  cat(sprintf("%-15s %-15d\n", missingTrainTable$Column[i], missingTrainTable$MissingTrainCount[i]))
+}
+
+```
+
+```{r}
+# Get the sum of missing values for each column
+missingTest <- colSums(is.na(mobileTest))
+
+# Column names
+testColumnNames <- names(missingTest)
+
+# Create a new data frame with column names and missing value counts
+missingTestTable <- data.frame(Column = testColumnNames, MissingTestCount = missingTest)
+
+# Print the tidy table to the console
+cat(sprintf("%-15s %-15s\n", "Column Name", "NA Count"))
+cat("---------------------------\n")
+for (i in seq_along(missingTestTable$Column)) {
+  cat(sprintf("%-15s %-15d\n", missingTestTable$Column[i], missingTestTable$MissingTestCount[i]))
+}
+
+```
+
+## Data Description:
+
+### Categorical Variables:
+
+-   *`blue`*: Binary categorical variable indicating whether the mobile has Bluetooth (0 or 1).
+-   *`dual_sim`*: Binary categorical variable indicating whether the mobile has dual SIM capability (0 or 1).
+-   *`four_g`*: Binary categorical variable indicating whether the mobile supports 4G (0 or 1).
+-   *`three_g`*: Binary categorical variable indicating whether the mobile supports 3G (0 or 1).
+-   *`touch_screen`*: Binary categorical variable indicating whether the mobile has a touch screen (0 or 1).
+-   *`wifi`*: Binary categorical variable indicating whether the mobile has Wi-Fi capability (0 or 1).
+-   *`price_range`*: Categorical variable representing the price range of the mobile. It has discrete values (0, 1, 2, 3).
+
+### Integer Variables:
+
+-   *`battery_power`*: Discrete integer variable representing the battery power of the mobile.
+-   *`fc`*: Discrete integer variable representing the front camera megapixels of the mobile.
+-   *`int_memory`*: Discrete integer variable representing the internal memory in GB of the mobile.
+-   *`mobile_wt`*: Discrete integer variable representing the weight of the mobile.
+-   *`n_cores`*: Discrete integer variable representing the number of cores of the mobile's processor.
+-   *`pc`*: Discrete integer variable representing the primary camera megapixels of the mobile.
+-   *`px_height`*: Discrete integer variable representing the pixel height of the mobile.
+-   *`px_width`*: Discrete integer variable representing the pixel width of the mobile.
+-   *`ram`*: Discrete integer variable representing the RAM of the mobile in MB.
+-   *`sc_h`*: Discrete integer variable representing the screen height of the mobile.
+-   *`sc_w`*: Discrete integer variable representing the screen width of the mobile.
+-   *`talk_time`*: Discrete integer variable representing the talk time of the mobile in hours.
+-   *`id`*: Discrete integer variable representing the unique ID of the mobile (present in the test dataset).
+
+### Numeric Variables:
+
+-   *`clock_speed`*: Continuous numeric variable representing the clock speed of the mobile's processor.
+-   *`m_dep`*: Continuous numeric variable representing the mobile depth.
+
+### Normalize the training Data Set for proper analysis
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+
+# Perform Min-Max scaling
+normalized_mobileTrain <- mobileTrain %>%
+  select(-price_range) %>%  # Remove the 'price_range' column before normalization
+  mutate(across(everything(), ~ (.-min(.)) / (max(.) - min(.))))
+
+# The 'price_range' column is not normalized since it is the target variable and shouldn't be scaled.
+
+# View the first few rows of the normalized data
+head(normalized_mobileTrain)
+
+```
+
+### Plot normalized continuous variables in training data set
+
+```{r}
+# Load necessary libraries
+library(ggplot2)
+library(tidyr)
+
+# Define the number of rows and columns for the subplot matrix
+num_rows <- 2
+num_cols <- 6
+
+# Select only the continuous and discrete integer columns from the mobileTrain dataset
+selected_cols <- normalized_mobileTrain[, c("battery_power", "fc", "int_memory", "mobile_wt", 
+                                 "n_cores", "pc", "px_height", "px_width", "ram", 
+                                 "sc_h", "sc_w", "talk_time")]
+
+# Convert the selected data frame to long format
+mobileTrain_long <- tidyr::pivot_longer(selected_cols, 
+                                       cols = everything(),
+                                       names_to = "name", values_to = "value")
+
+# Convert the 'name' column to a factor or character variable
+mobileTrain_long$name <- as.factor(mobileTrain_long$name)
+
+# Create the boxplot using ggplot2 with mean markers
+trainingPlots <- ggplot(mobileTrain_long, aes(x = name, y = value)) +
+  geom_boxplot() +
+  stat_boxplot(geom = "errorbar", width = 0.2, position = position_dodge(width = 0.75)) +
+  stat_summary(fun = mean, geom = "point", shape = 5, size = 3, color = "red",
+               position = position_dodge(width = 0.75)) +
+  facet_wrap(~name, scales = "free_x", ncol = num_cols) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Print the plot
+print(trainingPlots)
+
+```
+
+```{r}
+# Load necessary libraries
+library(ggplot2)
+
+# Select only the binary columns from the normalized_mobileTrain dataset
+binary_cols <- mobileTrain[, c("blue", "dual_sim", "four_g", "three_g", "touch_screen", "wifi")]
+
+# Get the table of counts for each binary variable
+binary_counts <- lapply(binary_cols, table)
+
+# Combine the counts into a single data frame
+binary_df <- do.call(rbind, lapply(names(binary_counts), function(var_name) {
+  data.frame(Variable = rep(var_name, 2),
+             Value = as.factor(c("0", "1")),
+             Count = as.numeric(binary_counts[[var_name]]))
+}))
+
+# Create the heatmap using ggplot2
+heatmap_plot <- ggplot(binary_df, aes(x = Variable, y = Value, fill = Count)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(low = "white", high = "black") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Print the plot
+print(heatmap_plot)
+
+```
+
+```{r}
+
+```
+
+```{r}
+```

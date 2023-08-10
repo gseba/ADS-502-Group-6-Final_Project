@@ -184,13 +184,11 @@ library(dplyr)
 
 # Perform Min-Max scaling
 normalized_mobileTrain <- mobileTrain %>%
-  select(-price_range) %>%  # Remove the 'price_range' column before normalization
   mutate(across(everything(), ~ (.-min(.)) / (max(.) - min(.))))
 
-# The 'price_range' column is not normalized since it is the target variable and shouldn't be scaled.
+# Get the dimensions of the normalized data
+dim(normalized_mobileTrain)
 
-# View the first few rows of the normalized data
-head(normalized_mobileTrain)
 
 ```
 
@@ -233,6 +231,104 @@ print(trainingPlots)
 
 ```
 
+### Identify outliers in the continuous variables via z-score
+
+```{r}
+# Function to calculate z-scores for a vector
+calculate_z_scores <- function(x) {
+  (x - mean(x)) / sd(x)
+}
+
+# Calculate z-scores for each column
+z_scores <- mobileTrain_long %>%
+  group_by(name) %>%
+  mutate(z_score = calculate_z_scores(value))
+
+# Set the z-score threshold for outlier detection
+z_score_threshold <- 3
+
+# Identify outliers based on z-scores
+outliers <- z_scores %>%
+  dplyr::filter(abs(z_score) > z_score_threshold)
+
+# Print the outliers
+print(outliers)
+```
+
+### Remove Outliers from data set
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+
+# Calculate z-scores for each column
+z_scores <- apply(normalized_mobileTrain, 2, function(x) abs((x - mean(x)) / sd(x)))
+
+# Find rows with z-scores greater than 3 in any column
+outliers <- rowSums(z_scores > 3) > 0
+
+# Filter out the outliers from the dataset
+filtered_mobileTrain <- normalized_mobileTrain[!outliers, ]
+
+# get dimensions of the filtered dataset
+dim(filtered_mobileTrain)
+
+```
+
+### Verify Impact of Outliers Removal
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+
+# Calculate z-scores for each column
+z_scores <- apply(normalized_mobileTrain, 2, function(x) abs((x - mean(x)) / sd(x)))
+
+# Find rows with z-scores greater than 3 in any column
+outliers <- rowSums(z_scores > 3) > 0
+
+# Filter out the outliers from the dataset
+filtered_mobileTrain <- normalized_mobileTrain[!outliers, ]
+
+# Print summary statistics of the original dataset
+print(summary(normalized_mobileTrain))
+
+# Print summary statistics of the filtered dataset
+print(summary(filtered_mobileTrain))
+```
+
+### Plot filtered data set to check for outliers
+
+```{r}
+library(ggplot2)
+
+# Define the number of rows and columns for the subplot matrix
+num_rows <- 2
+num_cols <- 6
+
+# Select only the numeric variables from the filtered_mobileTrain dataset
+selected_cols <- filtered_mobileTrain %>%
+  select(all_of(numeric_vars))
+
+# Convert the column names to a factor or character variable
+selected_cols <- selected_cols %>%
+  gather(name, value)
+
+# Create the boxplot using ggplot2 with mean markers
+trainingPlotsFiltered <- ggplot(selected_cols, aes(x = name, y = value)) +
+  geom_boxplot() +
+  stat_boxplot(geom = "errorbar", width = 0.2, position = position_dodge(width = 0.75)) +
+  stat_summary(fun = mean, geom = "point", shape = 5, size = 3, color = "red",
+               position = position_dodge(width = 0.75)) +
+  facet_wrap(~name, scales = "free_x", ncol = num_cols) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Print the plot
+print(trainingPlotsFiltered)
+
+```
+
 ```{r}
 # Load necessary libraries
 library(ggplot2)
@@ -259,12 +355,100 @@ heatmap_plot <- ggplot(binary_df, aes(x = Variable, y = Value, fill = Count)) +
 
 # Print the plot
 print(heatmap_plot)
+```
+
+### Numeric Variable Covariance Analysis to identify strongly correlated features
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+
+# Define the numeric and categorical variables
+numeric_vars <- c("battery_power", "fc", "int_memory", "mobile_wt", "n_cores", "pc", "px_height", "px_width", "ram", "sc_h", "sc_w", "talk_time")
+categorical_vars <- c("blue", "dual_sim", "four_g", "three_g", "touch_screen", "wifi")
+
+# Perform Min-Max scaling and convert categorical variables to factors
+normalized_mobileTrain <- mobileTrain %>%
+  mutate_at(vars(all_of(categorical_vars)), as.factor) %>%
+  mutate(across(all_of(numeric_vars), ~ (.-min(.)) / (max(.) - min(.))))
+
+# Calculate the covariance matrix for numeric variables
+cov_matrix <- cov(normalized_mobileTrain[, numeric_vars])
+
+# Print covariance matrix with variable names
+cat("Covariance Matrix for Numeric Variables:\n")
+print(cov_matrix)
+
 
 ```
 
+### Covariance Matrix Heatmap
+
 ```{r}
+# Load necessary libraries
+library(dplyr)
+library(ggplot2)
+library(reshape2)  # for melt function
+
+# Define the numeric and categorical variables
+numeric_vars <- c("battery_power", "fc", "int_memory", "mobile_wt", "n_cores", "pc", "px_height", "px_width", "ram", "sc_h", "sc_w", "talk_time")
+categorical_vars <- c("blue", "dual_sim", "four_g", "three_g", "touch_screen", "wifi")
+
+# Perform Min-Max scaling and convert categorical variables to factors
+normalized_mobileTrain <- mobileTrain %>%
+  mutate_at(vars(all_of(categorical_vars)), as.factor) %>%
+  mutate(across(all_of(numeric_vars), ~ (.-min(.)) / (max(.) - min(.))))
+
+# Calculate the correlation matrix for numeric variables
+cor_matrix <- cor(normalized_mobileTrain[, numeric_vars])
+
+# Create a heatmap of the correlation matrix
+heatmap_data <- as.data.frame(as.table(cor_matrix))
+colnames(heatmap_data) <- c("Variable_1", "Variable_2", "Correlation")  # Replace spaces with underscores
+
+# Create the heatmap
+ggplot(heatmap_data, aes(x = Variable_1, y = Variable_2, fill = Correlation)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "white", mid = "blue", high = "yellow", midpoint = 0) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  labs(title = "Correlation Heatmap for Numeric Variables")
 
 ```
 
+### Correlation with Target Variable
+
+*`Higher absolute correlation values indicate potentially important features.`*
+
 ```{r}
+# Calculate the correlation with the target variable
+cor_with_target <- sapply(numeric_vars, function(var) cor(normalized_mobileTrain[[var]], normalized_mobileTrain$price_range))
+
+# Print correlation values with the target variable neatly
+cat("Correlation with the target variable (price_range):\n")
+for (i in 1:length(numeric_vars)) {
+  cat(numeric_vars[i], ": ", cor_with_target[i], "\n")
+}
+```
+
+### Visualize the correlations between the numeric variables and the target variable "price_range" using a bar plot
+
+```{r}
+# Calculate the correlation with the target variable
+cor_with_target <- sapply(numeric_vars, function(var) cor(normalized_mobileTrain[[var]], normalized_mobileTrain$price_range))
+
+# Create a data frame for plotting
+cor_df <- data.frame(Variable = numeric_vars, Correlation = cor_with_target)
+
+# Plot correlation values with the target variable using a bar plot
+library(ggplot2)
+
+ggplot(cor_df, aes(x = reorder(Variable, -Correlation), y = Correlation)) +
+  geom_bar(stat = "identity", fill = "dodgerblue") +
+  coord_flip() +
+  labs(title = "Correlation with the target variable (price_range)",
+       x = "Numeric Variable",
+       y = "Correlation") +
+  theme_minimal()
+
 ```

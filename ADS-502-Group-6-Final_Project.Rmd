@@ -201,12 +201,10 @@ library(tidyr)
 
 # Define the number of rows and columns for the subplot matrix
 num_rows <- 2
-num_cols <- 6
+num_cols <- 7
 
 # Select only the continuous and discrete integer columns from the mobileTrain dataset
-selected_cols <- normalized_mobileTrain[, c("battery_power", "fc", "int_memory", "mobile_wt", 
-                                 "n_cores", "pc", "px_height", "px_width", "ram", 
-                                 "sc_h", "sc_w", "talk_time")]
+selected_cols <- normalized_mobileTrain[, cnumeric_vars <- c("battery_power","clock_speed", "fc", "int_memory", "m_dep",	"mobile_wt", "n_cores","pc", "px_height",	"px_width", "ram", "sc_h", "sc_w", "talk_time")]
 
 # Convert the selected data frame to long format
 mobileTrain_long <- tidyr::pivot_longer(selected_cols, 
@@ -304,7 +302,9 @@ library(ggplot2)
 
 # Define the number of rows and columns for the subplot matrix
 num_rows <- 2
-num_cols <- 6
+num_cols <- 7
+
+numeric_vars <- c("battery_power","clock_speed", "fc", "int_memory", "m_dep",	"mobile_wt", "n_cores","pc", "px_height",	"px_width", "ram", "sc_h", "sc_w", "talk_time")
 
 # Select only the numeric variables from the filtered_mobileTrain dataset
 selected_cols <- filtered_mobileTrain %>%
@@ -334,7 +334,7 @@ print(trainingPlotsFiltered)
 library(ggplot2)
 
 # Select only the binary columns from the normalized_mobileTrain dataset
-binary_cols <- mobileTrain[, c("blue", "dual_sim", "four_g", "three_g", "touch_screen", "wifi")]
+binary_cols <- filtered_mobileTrain[, c("blue", "dual_sim", "four_g", "three_g", "touch_screen", "wifi")]
 
 # Get the table of counts for each binary variable
 binary_counts <- lapply(binary_cols, table)
@@ -364,22 +364,19 @@ print(heatmap_plot)
 library(dplyr)
 
 # Define the numeric and categorical variables
-numeric_vars <- c("battery_power", "fc", "int_memory", "mobile_wt", "n_cores", "pc", "px_height", "px_width", "ram", "sc_h", "sc_w", "talk_time")
-categorical_vars <- c("blue", "dual_sim", "four_g", "three_g", "touch_screen", "wifi")
+numeric_vars <- c("battery_power", "clock_speed", "fc", "int_memory", "m_dep", "mobile_wt", "n_cores", "pc", "px_height", "px_width", "ram", "sc_h", "sc_w", "talk_time")
+categorical_vars <- c("blue", "dual_sim", "four_g", "three_g", "touch_screen", "wifi", "price_range")
 
-# Perform Min-Max scaling and convert categorical variables to factors
-normalized_mobileTrain <- mobileTrain %>%
-  mutate_at(vars(all_of(categorical_vars)), as.factor) %>%
-  mutate(across(all_of(numeric_vars), ~ (.-min(.)) / (max(.) - min(.))))
+# Convert categorical variables to factors for the filtered dataset
+filtered_mobileTrain <- filtered_mobileTrain %>%
+  mutate_at(vars(all_of(categorical_vars)), as.factor)
 
-# Calculate the covariance matrix for numeric variables
-cov_matrix <- cov(normalized_mobileTrain[, numeric_vars])
+# Calculate the covariance matrix for numeric variables in the filtered dataset
+cov_matrix_filtered <- cov(filtered_mobileTrain[, numeric_vars])
 
-# Print covariance matrix with variable names
+# Print covariance matrix with variable names for the filtered dataset
 cat("Covariance Matrix for Numeric Variables:\n")
-print(cov_matrix)
-
-
+print(cov_matrix_filtered)
 ```
 
 ### Covariance Matrix Heatmap
@@ -391,28 +388,73 @@ library(ggplot2)
 library(reshape2)  # for melt function
 
 # Define the numeric and categorical variables
-numeric_vars <- c("battery_power", "fc", "int_memory", "mobile_wt", "n_cores", "pc", "px_height", "px_width", "ram", "sc_h", "sc_w", "talk_time")
-categorical_vars <- c("blue", "dual_sim", "four_g", "three_g", "touch_screen", "wifi")
+numeric_vars <- c("battery_power","clock_speed", "fc", "int_memory", "m_dep", "mobile_wt", "n_cores","pc", "px_height", "px_width", "ram", "sc_h", "sc_w", "talk_time")
+categorical_vars <- c("blue", "dual_sim", "four_g", "three_g", "touch_screen", "wifi", "price_range")
 
-# Perform Min-Max scaling and convert categorical variables to factors
-normalized_mobileTrain <- mobileTrain %>%
-  mutate_at(vars(all_of(categorical_vars)), as.factor) %>%
-  mutate(across(all_of(numeric_vars), ~ (.-min(.)) / (max(.) - min(.))))
+# Convert categorical variables to factors for the filtered dataset
+filtered_mobileTrain <- filtered_mobileTrain %>%
+  mutate_at(vars(all_of(categorical_vars)), as.factor)
 
-# Calculate the correlation matrix for numeric variables
-cor_matrix <- cor(normalized_mobileTrain[, numeric_vars])
 
-# Create a heatmap of the correlation matrix
-heatmap_data <- as.data.frame(as.table(cor_matrix))
-colnames(heatmap_data) <- c("Variable_1", "Variable_2", "Correlation")  # Replace spaces with underscores
+# Calculate the covariance matrix for numeric variables
+cov_matrix <- cov(filtered_mobileTrain[, numeric_vars])
 
-# Create the heatmap
-ggplot(heatmap_data, aes(x = Variable_1, y = Variable_2, fill = Correlation)) +
+# Create a heatmap of the covariance matrix
+heatmap_data <- as.data.frame(as.table(cov_matrix))
+colnames(heatmap_data) <- c("Variable_1", "Variable_2", "Covariance")  # Replace spaces with underscores
+
+# Create the heatmap with covariance values as labels
+ggplot(heatmap_data, aes(x = Variable_1, y = Variable_2, fill = Covariance)) +
   geom_tile() +
+  geom_text(aes(label = round(Covariance, 2)), vjust = 0.5, size = 3) +  # Add covariance values as labels
   scale_fill_gradient2(low = "white", mid = "blue", high = "yellow", midpoint = 0) +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-  labs(title = "Correlation Heatmap for Numeric Variables")
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Covariance Heatmap for Numeric Variables")
+
+```
+
+### Covariance Scatter Sub-Plots
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(ggplot2)
+library(reshape2)
+
+# Calculate the covariance matrix for numeric variables
+cov_matrix <- cov(filtered_mobileTrain[, numeric_vars])
+
+# Create melted data for scatter sub-plots
+heatmap_data <- as.data.frame(as.table(cov_matrix))
+colnames(heatmap_data) <- c("Variable_1", "Variable_2", "Covariance")
+melted_data <- melt(heatmap_data, id.vars = c("Variable_1", "Variable_2"))
+
+# Sort the melted data by Covariance in descending order
+sorted_melted_data <- melted_data %>%
+  arrange(desc(value))  # Sort by 'value' instead of 'Covariance'
+
+# Get the top X and bottom X rows
+top_5 <- head(sorted_melted_data, 10)
+bottom_5 <- tail(sorted_melted_data, 10)
+
+# Create scatter sub-plots for the top X covariance values using ggplot2
+top_plots <- ggplot(data = top_5, aes(x = Variable_1, y = Variable_2)) +
+  geom_point(aes(size = value, color = value)) +
+  labs(title = "Top 10 Covariance Scatter Plots") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  
+
+# Create scatter sub-plots for the bottom X covariance values using ggplot2
+bottom_plots <- ggplot(data = bottom_5, aes(x = Variable_1, y = Variable_2)) +
+  geom_point(aes(size = value, color = value)) +
+  labs(title = "Bottom 10 Covariance Scatter Plots") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  
+
+# Display the scatter sub-plots
+print(top_plots)
+print(bottom_plots)
 
 ```
 
@@ -421,21 +463,31 @@ ggplot(heatmap_data, aes(x = Variable_1, y = Variable_2, fill = Correlation)) +
 *`Higher absolute correlation values indicate potentially important features.`*
 
 ```{r}
-# Calculate the correlation with the target variable
-cor_with_target <- sapply(numeric_vars, function(var) cor(normalized_mobileTrain[[var]], normalized_mobileTrain$price_range))
+# Map factor levels to numeric values for price_range
+filtered_mobileTrain$price_numeric <- as.numeric(filtered_mobileTrain$price_range) - 1
+
+# Calculate correlations with the new numeric version of price_range
+cor_with_target <- sapply(numeric_vars, function(var) cor(filtered_mobileTrain[[var]], filtered_mobileTrain$price_numeric))
 
 # Print correlation values with the target variable neatly
 cat("Correlation with the target variable (price_range):\n")
 for (i in 1:length(numeric_vars)) {
   cat(numeric_vars[i], ": ", cor_with_target[i], "\n")
 }
+
 ```
 
 ### Visualize the correlations between the numeric variables and the target variable "price_range" using a bar plot
 
 ```{r}
+# Convert factor levels of price_range to numeric values
+filtered_mobileTrain$price_numeric <- as.numeric(filtered_mobileTrain$price_range) - 1
+
 # Calculate the correlation with the target variable
-cor_with_target <- sapply(numeric_vars, function(var) cor(normalized_mobileTrain[[var]], normalized_mobileTrain$price_range))
+cor_with_target <- sapply(numeric_vars, function(var) cor(filtered_mobileTrain[[var]], filtered_mobileTrain$price_numeric))
+
+# Remove the temporary price_numeric variable
+filtered_mobileTrain$price_numeric <- NULL
 
 # Create a data frame for plotting
 cor_df <- data.frame(Variable = numeric_vars, Correlation = cor_with_target)
@@ -451,4 +503,66 @@ ggplot(cor_df, aes(x = reorder(Variable, -Correlation), y = Correlation)) +
        y = "Correlation") +
   theme_minimal()
 
+```
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(ggplot2)
+library(reshape2)  # for melt function
+
+# Define the numeric and categorical variables
+numeric_vars <- c("battery_power","clock_speed", "fc", "int_memory", "m_dep",	"mobile_wt", "n_cores","pc", "px_height", "px_width", "ram", "sc_h", "sc_w", "talk_time")
+categorical_vars <- c("blue", "dual_sim", "four_g", "three_g", "touch_screen", "wifi", "price_range")
+
+# Convert categorical variables to factors for the filtered dataset
+filtered_mobileTrain <- filtered_mobileTrain %>%
+  mutate_at(vars(all_of(categorical_vars)), as.factor)
+
+# Calculate the correlation matrix for numeric variables
+cor_matrix <- cor(filtered_mobileTrain[, numeric_vars])
+
+# Create a heatmap of the correlation matrix
+heatmap_data <- as.data.frame(as.table(cor_matrix))
+colnames(heatmap_data) <- c("Variable_1", "Variable_2", "Correlation")  # Replace spaces with underscores
+
+# Create the heatmap with correlation values as labels
+ggplot(heatmap_data, aes(x = Variable_1, y = Variable_2, fill = Correlation)) +
+  geom_tile() +
+  geom_text(aes(label = round(Correlation, 2)), vjust = 0.5, size = 3) +  # Add correlation values as labels
+  scale_fill_gradient2(low = "white", mid = "blue", high = "yellow", midpoint = 0) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Correlation Heatmap for Numeric Variables")
+
+```
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(kableExtra)
+library(htmltools)
+
+# Create a data frame to store chi-squared test results
+chi_squared_results_df <- data.frame(variable = character(0), statistic = numeric(0), p_value = numeric(0))
+
+# Create contingency tables and perform chi-squared tests for each categorical predictor
+categorical_vars <- c("blue", "dual_sim", "four_g", "three_g", "touch_screen", "wifi")
+for (var in categorical_vars) {
+  contingency_table <- table(filtered_mobileTrain$price_range, filtered_mobileTrain[[var]])
+  chi_squared_result <- chisq.test(contingency_table)
+  
+  # Append results to the data frame
+  chi_squared_results_df <- rbind(chi_squared_results_df, data.frame(variable = var, statistic = chi_squared_result$statistic, p_value = chi_squared_result$p.value))
+}
+
+# Print results in a formatted table
+kable(chi_squared_results_df, format = "html", caption = "Chi-Squared Test Results") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))%>%
+  column_spec(1:4, color = "black") %>%
+  row_spec(0, color = "black")
+
+```
+
+```         
 ```

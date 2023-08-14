@@ -23,19 +23,12 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 # Load data files
 mobileTrain <- read.csv("train.csv", header = TRUE)
-mobileTest <- read.csv("test.csv", header = TRUE)
 ```
 
 ```{r}
 # Find training data set dimensions
 dimenTrain <- dim(mobileTrain)
 print(dimenTrain)
-```
-
-```{r}
-# Find testing data set dimensions
-dimenTest <- dim(mobileTest)
-print(dimenTest)
 ```
 
 ```{r}
@@ -68,41 +61,11 @@ print(df)
 ```
 
 ```{r}
-# Load the tidyverse package
-library(tidyverse)
-
-# Get the column names and data types
-colnamesTest <- colnames(mobileTest)
-dtypeTest <- sapply(mobileTest, class)
-
-# Clean the output
-colnamesTest <- str_pad(colnamesTest, 10, side = "left")
-dtypeTest <- str_pad(dtypeTest, 10, side = "left")
-
-# Combine the two into a single data frame
-df <- tibble(
-  colname = colnamesTest,
-  dtype = dtypeTest
-)
-
-# Print the data frame
-print(df)
-
-```
-
-```{r}
 # Display summary statistics for the training data set
 summaryTrain <- summary(mobileTrain)
 
 print(summaryTrain)
 
-```
-
-```{r}
-# Display summary statistics for the training data set
-summaryTest<- summary(mobileTest)
-
-print(summaryTest)
 ```
 
 ```{r}
@@ -121,26 +84,6 @@ cat("---------------------------\n")
 for (i in seq_along(missingTrainTable$Column)) {
   cat(sprintf("%-15s %-15d\n", missingTrainTable$Column[i], missingTrainTable$MissingTrainCount[i]))
 }
-
-```
-
-```{r}
-# Get the sum of missing values for each column
-missingTest <- colSums(is.na(mobileTest))
-
-# Column names
-testColumnNames <- names(missingTest)
-
-# Create a new data frame with column names and missing value counts
-missingTestTable <- data.frame(Column = testColumnNames, MissingTestCount = missingTest)
-
-# Print the tidy table to the console
-cat(sprintf("%-15s %-15s\n", "Column Name", "NA Count"))
-cat("---------------------------\n")
-for (i in seq_along(missingTestTable$Column)) {
-  cat(sprintf("%-15s %-15d\n", missingTestTable$Column[i], missingTestTable$MissingTestCount[i]))
-}
-
 ```
 
 ## Data Description:
@@ -779,30 +722,779 @@ dim(final_mobileTrain)
 
 Baseline model has an accuracy of 25.05%.
 
-### Classification Model with Training Set
-
-### Validate Model on Test Set
+## C5.0 Decision Tree Model
 
 ```{r}
-# Normalize Test Data
+# Partition the Data Set
 
-# Load necessary libraries
-#library(dplyr)
+# Set Seed
+set.seed(7)
 
-# Min-Max scaling
-#min_max_norm <- function(x) {(x - min(x)) / (max(x) - min(x))}
+n <- dim(final_mobileTrain)[1]
 
-#Apply normalization to necessacry columns (all columns - target)
-#normalized_mobileTest <- as.data.frame(lapply(mobileTest[1:20], min_max_norm))
+#Random Number Generator
+train_ind <- runif(n) < 0.75
 
-#Add target variable (price_range) back
-#normalized_mobileTest$price_range <- mobileTest$price_range
+#Create Training and Test Data Sets
+MobileTraining <- final_mobileTrain[ train_ind, ]
+MobileTesting <- final_mobileTrain[ !train_ind, ]
 
-#Validate normalization and target variable
-#head(normalized_mobileTest)
-
-#Remove Variables not being modeled + id
-#final_mobileTest = subset(filtered_mobileTrain, select = -c(xxxxx) )
 ```
 
-### Evaluation Metrics on Model
+```{r}
+# Classification Model with Training Set
+# C5.0 Model for multiple variables to predict price range
+
+#Load Libraries
+library(C50)
+
+#Factor Price Range Variable
+MobileTraining$price_range <- as.factor(MobileTraining$price_range)
+
+#Run model algorithm on final_mobileTrain
+C5_train <- C5.0(formula = price_range ~ battery_power + four_g + int_memory + mobile_wt + pc + px_width + ram + sc_w + talk_time + touch_screen + wifi, data = MobileTraining, control = C5.0Control(minCases = 65))
+
+#Plot model
+plot(C5_train)
+```
+
+```{r}
+# Create data frame to predict
+X = data.frame(battery_power = MobileTraining$battery_power, four_g = MobileTraining$four_g, int_memory = MobileTraining$int_memory, mobile_wt = MobileTraining$mobile_wt, pc = MobileTraining$pc, px_width = MobileTraining$px_width, ram = MobileTraining$ram, sc_w = MobileTraining$sc_w, talk_time = MobileTraining$talk_time, touch_screen = MobileTraining$touch_screen, wifi = MobileTraining$wifi)
+
+#Classifications for each record
+y_pred_train <- predict(object = C5_train, newdata = X)
+head(y_pred_train, 10)
+```
+
+```{r}
+# Subset predictor from test data set
+X_test = data.frame(battery_power = MobileTesting$battery_power, four_g = MobileTesting$four_g, int_memory = MobileTesting$int_memory, mobile_wt = MobileTesting$mobile_wt, pc = MobileTesting$pc, px_width = MobileTesting$px_width, ram = MobileTesting$ram, sc_w = MobileTesting$sc_w, talk_time = MobileTesting$talk_time, touch_screen = MobileTesting$touch_screen, wifi = MobileTesting$wifi)
+
+#Run test data through training model
+ypred_test <- predict(object = C5_train, newdata = X_test)
+head(ypred_test, 10)
+```
+
+```{r}
+# Confusion matrix
+C5_conf_matrix <- table(Actual = MobileTesting$price_range, Predicted = ypred_test)
+print(C5_conf_matrix)
+
+# Compute accuracy
+C5_accuracy <- round(sum(diag(C5_conf_matrix)) / sum(C5_conf_matrix),4)
+cat("C5.0 Accuracy:", C5_accuracy, "\n")
+```
+
+```         
+```
+
+```{r}
+# Evaluation Metrics on Model
+t1 <- table(MobileTesting$price_range, ypred_test)
+row.names(t1) <- c("Actual: 0", "Actual: 1", "Actual: 2", "Actual: 3")
+colnames(t1) <- c("Predicted: 0", "Predicted 1", "Predicted: 2", "Predicted: 3")
+t1 <- addmargins(A = t1, FUN = list(Total = sum), quiet = TRUE)
+t1
+```
+
+```{r}
+# Load Libraries
+library(C50)
+
+# Confusion matrix for C5.0
+C5_conf_matrix <- table(Actual = MobileTesting$price_range, Predicted = ypred_test)
+
+# Calculate Metrics for C5.0
+C5_accuracy <- round(sum(diag(C5_conf_matrix)) / sum(C5_conf_matrix), 4)
+C5_error_rate <- round(1 - C5_accuracy, 4)
+
+C5_sensitivity <- round(C5_conf_matrix[1, 1] / sum(C5_conf_matrix[1, ]), 4)
+C5_specificity <- round(C5_conf_matrix[2, 2] / sum(C5_conf_matrix[2, ]), 4)
+C5_precision <- round(C5_conf_matrix[1, 1] / sum(C5_conf_matrix[, 1]), 4)
+C5_recall <- C5_sensitivity
+C5_f1 <- round(2 * (C5_precision * C5_recall) / (C5_precision + C5_recall), 4)
+
+# Print Metrics for C5.0
+cat("C5.0 Accuracy:", C5_accuracy, "\n")
+cat("C5.0 Error Rate:", C5_error_rate, "\n")
+cat("C5.0 Sensitivity:", C5_sensitivity, "\n")
+cat("C5.0 Specificity:", C5_specificity, "\n")
+cat("C5.0 Precision:", C5_precision, "\n")
+cat("C5.0 Recall:", C5_recall, "\n")
+cat("C5.0 F1:", C5_f1, "\n")
+
+```
+
+```{r}
+# suppressMessages()
+suppressMessages({
+  
+# Load Libraries
+library(C50)
+library(caret)
+
+# Set Seed for Reproducibility
+set.seed(7)
+
+# Specify the number of folds for cross-validation
+num_folds <- 5
+
+# Create a data frame to store the results
+results <- data.frame(Actual = factor(), Predicted = factor())
+
+# Perform k-fold cross-validation
+folds <- createFolds(MobileTraining$price_range, k = num_folds)
+for (fold in seq_along(folds)) {
+  train_indices <- unlist(folds[-fold])
+  test_indices <- folds[[fold]]
+  
+  fold_train <- MobileTraining[train_indices, ]
+  fold_test <- MobileTraining[test_indices, ]
+  
+  # Run model algorithm on the training fold
+  C5_train <- C5.0(formula = price_range ~ battery_power + four_g + int_memory + mobile_wt + pc + px_width + ram + sc_w + talk_time + touch_screen + wifi,
+                   data = fold_train, control = C5.0Control(minCases = 65))
+  
+  # Create data frame to predict for training fold
+  X = fold_train[, c("battery_power", "four_g", "int_memory", "mobile_wt", "pc", "px_width", "ram", "sc_w", "talk_time", "touch_screen", "wifi")]
+  
+  # Classifications for each record in training fold
+  y_pred_train <- predict(object = C5_train, newdata = X)
+  
+  # Store predicted and actual labels for training fold
+  fold_results_train <- data.frame(Actual = fold_train$price_range, Predicted = y_pred_train)
+  
+  # Subset predictor from test fold
+  X_test = fold_test[, c("battery_power", "four_g", "int_memory", "mobile_wt", "pc", "px_width", "ram", "sc_w", "talk_time", "touch_screen", "wifi")]
+  
+  # Predictions on the test fold using the training model
+  ypred_test <- predict(object = C5_train, newdata = X_test)
+  
+  # Store predicted and actual labels for test fold
+  fold_results_test <- data.frame(Actual = fold_test$price_range, Predicted = ypred_test)
+  
+  # Combine results for both folds
+  fold_results <- rbind(fold_results_train, fold_results_test)
+  results <- rbind(results, fold_results)
+}
+
+# Calculate accuracy (you can use other performance metrics as needed)
+accuracy <- round(sum(results$Predicted == results$Actual) / nrow(results),4)
+cat("C5.0 Cross-Validation Accuracy:", accuracy, "\n")
+})
+```
+
+```{r}
+# suppressMessages()
+suppressMessages({
+  
+library(pROC)
+
+# Get number of observations in test set
+n <- nrow(MobileTesting)
+
+# Calculate AUC for each class
+auc_C50_list <- list()
+for (i in levels(MobileTesting$price_range)) {
+  # Create vectors of the same length
+  response_C50 <- as.numeric(MobileTesting$price_range == i)
+  predictor_C50<- as.numeric(ypred_test)[1:nrow(MobileTesting)]
+
+  # Calculate AUC
+  roc_obj <- roc(response, predictor, levels = c(0, 1))
+  auc_C50_list[[i]] <- auc(roc_obj)
+}
+
+# Calculate average AUC
+auc_C50 <- round(mean(unlist(auc_list)),4)
+
+# Print AUC
+cat("Multi-class AUC for C5.0:", auc_C50, "\n")
+})
+```
+
+### Support Vector Machines (SVM) Model
+
+```{r}
+# Load Libraries
+library(e1071)
+
+# Set Seed for Reproducibility
+set.seed(7)
+
+# Shuffle the Data
+shuffled_data <- final_mobileTrain[sample(nrow(final_mobileTrain)), ]
+
+# Calculate Training Set Size
+train_ratio <- 0.75
+train_size <- floor(nrow(shuffled_data) * train_ratio)
+
+# Create Training and Test Data Sets
+MobileTrainingSVM <- shuffled_data[1:train_size, ]
+MobileTestingSVM <- shuffled_data[(train_size + 1):nrow(shuffled_data), ]
+
+# Convert the target variable to a numeric format
+MobileTrainingSVM$price_range <- as.numeric(MobileTrainingSVM$price_range) - 1
+
+# Specify Predictor Variables
+predictors <- c("battery_power", "four_g", "int_memory", "mobile_wt", "pc", "px_width", "ram", "sc_w", "talk_time", "touch_screen","wifi")
+
+# Train the SVM model using the svm() function from the e1071 package
+SVM_model <- svm(price_range ~ .,
+                 data = MobileTrainingSVM[, c("price_range", predictors)],  # Include price_range and predictor columns
+                 type = "C-classification",
+                 kernel = "radial",
+                 cost = 1)
+
+# Convert the test target variable
+MobileTestingSVM$price_range <- as.numeric(MobileTestingSVM$price_range) - 1
+
+# Predictions on the test set
+ypred_svm <- predict(SVM_model, newdata = MobileTestingSVM[, c("price_range", predictors)])  # Include price_range and predictor columns
+
+```
+
+```{r}
+# Confusion matrix
+conf_matrixSVM <- table(Actual = MobileTestingSVM$price_range, Predicted = ypred_svm)
+print(conf_matrixSVM)
+
+# Compute accuracy
+accuracySVM <- round(sum(diag(conf_matrixSVM)) / sum(conf_matrixSVM),4)
+cat("SVM Accuracy:", accuracySVM, "\n")
+
+```
+
+```{r}
+# Load Libraries
+library(e1071)
+
+# Predictions on the test set
+ypred_svm <- predict(SVM_model, newdata = MobileTestingSVM[, c("price_range", predictors)])
+
+# Convert to factor for pROC
+MobileTestingSVM$price_range <- as.factor(MobileTestingSVM$price_range)
+ypred_svm_factor <- as.factor(ypred_svm)
+
+# Check levels of class labels and predicted values
+if (!identical(levels(MobileTestingSVM$price_range), levels(ypred_svm_factor))) {
+  stop("Class label levels do not match with predicted value levels.")
+}
+
+# Calculate Metrics
+conf_matrix <- table(Actual = MobileTestingSVM$price_range, Predicted = ypred_svm)
+
+accuracy <- round(sum(diag(conf_matrix)) / sum(conf_matrix), 4)
+error_rate <- round(1 - accuracy, 4)
+
+sensitivity <- round(conf_matrix[1, 1] / sum(conf_matrix[1, ]), 4)
+specificity <- round(conf_matrix[2, 2] / sum(conf_matrix[2, ]), 4)
+precision <- round(conf_matrix[1, 1] / sum(conf_matrix[, 1]), 4)
+recall <- sensitivity
+f1 <- round(2 * (precision * recall) / (precision + recall), 4)
+
+# Print Metrics
+cat("Accuracy:", accuracy, "\n")
+cat("Error Rate:", error_rate, "\n")
+cat("Sensitivity:", sensitivity, "\n")
+cat("Specificity:", specificity, "\n")
+cat("Precision:", precision, "\n")
+cat("Recall:", recall, "\n")
+cat("F1:", f1, "\n")
+
+```
+
+```{r}
+# Load Libraries
+library(e1071)
+library(caret)
+
+# Set Seed for Reproducibility
+set.seed(7)
+
+# Specify the number of folds for cross-validation
+num_folds <- 5
+
+# Create a data frame to store the results
+results <- data.frame(Actual = integer(0), Predicted = integer(0))
+
+# Perform k-fold cross-validation
+folds <- createFolds(shuffled_data$price_range, k = num_folds)
+for (fold in seq_along(folds)) {
+  train_indices <- unlist(folds[-fold])
+  test_indices <- folds[[fold]]
+  
+  fold_train <- shuffled_data[train_indices, ]
+  fold_test <- shuffled_data[test_indices, ]
+  
+  # Convert the target variable to a factor format
+  fold_train$price_range <- as.factor(fold_train$price_range)
+  fold_test$price_range <- as.factor(fold_test$price_range)
+  
+  # Train the SVM model using the svm() function from the e1071 package
+  SVM_model <- svm(price_range ~ .,
+                   data = fold_train[, c("price_range", predictors)],
+                   type = "C-classification",
+                   kernel = "radial",
+                   cost = 1)
+  
+  # Predictions on the test set for this fold
+  ypred_svm <- predict(SVM_model, newdata = fold_test[, c("price_range", predictors)])
+  
+  # Store predicted and actual labels
+  fold_results <- data.frame(Actual = fold_test$price_range, Predicted = ypred_svm)
+  results <- rbind(results, fold_results)
+}
+
+# Calculate accuracy (you can use other performance metrics as needed)
+accuracy <- round(sum(results$Predicted == results$Actual) / nrow(results),4)
+cat("SVM Cross-Validation Accuracy:", accuracy, "\n")
+
+```
+
+```{r}
+# suppressMessages()
+suppressMessages({
+  
+library(pROC)
+
+# Calculate multi-class AUC
+auc_list_SVM <- list()
+for (i in levels(MobileTestingSVM$price_range)) {
+  # Create vectors of the same length
+  response <- as.numeric(MobileTestingSVM$price_range == i)
+  predictor <- as.numeric(ypred_svm)[1:nrow(MobileTestingSVM)]
+
+  # Calculate AUC
+  roc_obj_SVM <- roc(response, predictor, levels = c(0, 1))
+  auc_list_SVM[[i]] <- auc(roc_obj_SVM)
+}
+
+# Calculate average AUC
+auc_SVM <- round(mean(unlist(auc_list_SVM)),4)
+
+# Print AUC
+cat("Multi-class AUC for SVM:", auc_SVM, "\n")
+})
+```
+
+### K-Nearest Neighbors (KNN) Model
+
+```{r}
+# Load Libraries
+library(class)
+
+# Set Seed for Reproducibility
+set.seed(7)
+
+# Shuffle the Data
+shuffled_data <- final_mobileTrain[sample(nrow(final_mobileTrain)), ]
+
+# Calculate Training Set Size
+train_ratio <- 0.75
+train_size <- floor(nrow(shuffled_data) * train_ratio)
+
+# Create Training and Test Data Sets
+MobileTrainingKNN <- shuffled_data[1:train_size, ]
+MobileTestingKNN <- shuffled_data[(train_size + 1):nrow(shuffled_data), ]
+
+# Convert the target variable to a numeric format
+MobileTrainingKNN$price_range <- as.numeric(MobileTrainingKNN$price_range) - 1
+
+# Specify Predictor Variables
+predictors <- c("battery_power", "four_g", "int_memory", "mobile_wt", "pc", "px_width", "ram", "sc_w", "talk_time", "touch_screen", "wifi")
+
+# Train the K-NN model using the knn() function from the class package
+KNN_model <- knn(train = MobileTrainingKNN[, predictors],
+                 test = MobileTestingKNN[, predictors],
+                 cl = MobileTrainingKNN$price_range,
+                 k = 8)  # You can adjust the value of k as needed
+
+# Convert the test target variable
+MobileTestingKNN$price_range <- as.numeric(MobileTestingKNN$price_range) - 1
+
+# Predictions on the test set
+ypred_knn <- as.numeric(KNN_model)
+
+```
+
+```{r}
+# Confusion matrix
+conf_matrixKNN <- table(Actual = MobileTestingKNN$price_range, Predicted = ypred_knn)
+print(conf_matrixKNN)
+
+# Compute accuracy
+accuracyKNN <- round(sum(diag(conf_matrixKNN)) / sum(conf_matrixKNN),4)
+cat("KNN Accuracy:", accuracyKNN, "\n")
+```
+
+```{r}
+# Confusion matrix for K-NN
+conf_matrixKNN <- table(Actual = MobileTestingKNN$price_range, Predicted = ypred_knn)
+
+# Calculate Metrics for K-NN
+accuracyKNN <- round(sum(diag(conf_matrixKNN)) / sum(conf_matrixKNN), 4)
+error_rateKNN <- round(1 - accuracyKNN, 4)
+
+sensitivityKNN <- round(conf_matrixKNN[1, 1] / sum(conf_matrixKNN[1, ]), 4)
+specificityKNN <- round(conf_matrixKNN[2, 2] / sum(conf_matrixKNN[2, ]), 4)
+precisionKNN <- round(conf_matrixKNN[1, 1] / sum(conf_matrixKNN[, 1]), 4)
+recallKNN <- sensitivityKNN
+f1KNN <- round(2 * (precisionKNN * recallKNN) / (precisionKNN + recallKNN), 4)
+
+# Print Metrics for K-NN
+cat("K-NN Accuracy:", accuracyKNN, "\n")
+cat("K-NN Error Rate:", error_rateKNN, "\n")
+cat("K-NN Sensitivity:", sensitivityKNN, "\n")
+cat("K-NN Specificity:", specificityKNN, "\n")
+cat("K-NN Precision:", precisionKNN, "\n")
+cat("K-NN Recall:", recallKNN, "\n")
+cat("K-NN F1:", f1KNN, "\n")
+
+```
+
+```{r}
+# suppressMessages()
+suppressMessages({
+  
+# Load Libraries
+library(class)
+library(caret)
+
+# Set Seed for Reproducibility
+set.seed(7)
+
+# Specify the number of folds for cross-validation
+num_folds <- 5
+
+# Create a data frame to store the results
+results <- data.frame(Actual = integer(0), Predicted = integer(0))
+
+# Perform k-fold cross-validation
+folds <- createFolds(shuffled_data$price_range, k = num_folds)
+for (fold in seq_along(folds)) {
+  train_indices <- unlist(folds[-fold])
+  test_indices <- folds[[fold]]
+  
+  fold_train <- shuffled_data[train_indices, ]
+  fold_test <- shuffled_data[test_indices, ]
+  
+  # Convert the target variable to a numeric format
+  fold_train$price_range <- as.numeric(fold_train$price_range) - 1
+  fold_test$price_range <- as.numeric(fold_test$price_range) - 1
+  
+  # Train the K-NN model using the knn() function from the class package
+  KNN_model <- knn(train = fold_train[, predictors],
+                   test = fold_test[, predictors],
+                   cl = fold_train$price_range,
+                   k = 5)  # You can adjust the value of k as needed
+  
+  # Predictions on the test set for this fold
+  ypred_knn <- as.numeric(KNN_model)
+  
+  # Store predicted and actual labels
+  fold_results <- data.frame(Actual = fold_test$price_range, Predicted = ypred_knn)
+  results <- rbind(results, fold_results)
+}
+
+# Calculate accuracy (you can use other performance metrics as needed)
+accuracy <- round(sum(results$Predicted == results$Actual) / nrow(results),4)
+cat("KNN Cross-Validation Accuracy:", accuracy, "\n")
+})
+```
+
+```{r}
+# suppressMessages()
+suppressMessages({
+  
+library(pROC)
+
+# Calculate multi-class AUC
+auc_list_KNN <- list()
+for (i in levels(fold_test$price_range)) {
+  # Create vectors of the same length
+  response <- as.numeric(fold_test$price_range == i)
+  predictor <- as.numeric(ypred_knn)[1:nrow(fold_test)]
+
+  # Calculate AUC
+  roc_obj_KNN <- roc(response, predictor, levels = c(0, 1))
+  auc_list_KNN[[i]] <- auc(roc_obj_KNN)
+}
+
+# Calculate average AUC
+auc_KNN <- round(mean(unlist(auc_list_KNN)),4)
+
+# Print AUC
+cat("Multi-class AUC for KNN:", auc_KNN, "\n")
+})
+```
+
+### Logistic Regression Model
+
+```{r}
+# Load Libraries
+library(dplyr)
+library(nnet)
+
+# Set Seed for Reproducibility
+set.seed(7)
+
+# Shuffle the Data
+shuffled_data <- final_mobileTrain %>%
+  sample_frac(1)
+
+# Calculate Training Set Size
+train_ratio <- 0.75
+train_size <- floor(nrow(shuffled_data) * train_ratio)
+
+# Create Training and Test Data Sets
+MobileTrainingLR <- shuffled_data %>%
+  slice(1:train_size)
+MobileTestingLR <- shuffled_data %>%
+  slice((train_size + 1):nrow(shuffled_data))
+
+# Convert the target variable to a numeric format
+MobileTrainingLR$price_range <- as.numeric(MobileTrainingLR$price_range) - 1
+
+# Specify Predictor Variables
+predictors <- c("battery_power", "four_g", "int_memory", "mobile_wt", "pc", "px_width", "ram", "sc_w", "talk_time", "touch_screen", "wifi")
+
+# Train the Multinomial Logistic Regression model using multinom
+logreg_model <- multinom(factor(price_range) ~ .,
+                         data = MobileTrainingLR[, c("price_range", predictors)])
+
+# Convert the test target variable
+MobileTestingLR$price_range <- as.numeric(MobileTestingLR$price_range) - 1
+
+# Predictions on the test set
+ypred_logreg <- predict(logreg_model, newdata = MobileTestingLR[, c("price_range", predictors)], type = "probs")
+
+# Convert probabilities to class labels
+predicted_classes <- apply(ypred_logreg, 1, which.max)
+
+```
+
+```{r}
+# Predictions on the test set
+ypred_probs <- predict(logreg_model, newdata = MobileTestingLR[, c(predictors)], type = "probs")
+
+# Convert probabilities to class labels
+predicted_classes <- apply(ypred_probs, 1, which.max)
+
+# Confusion matrix
+conf_matrix_LR <- table(Actual = MobileTestingLR$price_range, Predicted = predicted_classes)
+print(conf_matrix_LR)
+
+# Compute accuracy
+accuracy_LR <- round(sum(diag(conf_matrix_LR)) / sum(conf_matrix_LR), 4)
+cat("Logistic Regression Accuracy:", accuracy_LR, "\n")
+
+```
+
+```{r}
+# Predictions on the test set
+ypred_probs <- predict(logreg_model, newdata = MobileTestingLR[, c(predictors)], type = "probs")
+
+# Convert probabilities to class labels
+predicted_classes <- apply(ypred_probs, 1, which.max)
+
+# Confusion matrix for Logistic Regression
+conf_matrix_LR <- table(Actual = MobileTestingLR$price_range, Predicted = predicted_classes)
+
+# Calculate Metrics for Logistic Regression
+accuracy_LR <- round(sum(diag(conf_matrix_LR)) / sum(conf_matrix_LR), 4)
+error_rate_LR <- round(1 - accuracy_LR, 4)
+
+sensitivity_LR <- round(conf_matrix_LR[1, 1] / sum(conf_matrix_LR[1, ]), 4)
+specificity_LR <- round(conf_matrix_LR[2, 2] / sum(conf_matrix_LR[2, ]), 4)
+precision_LR <- round(conf_matrix_LR[1, 1] / sum(conf_matrix_LR[, 1]), 4)
+recall_LR <- sensitivity_LR
+f1_LR <- round(2 * (precision_LR * recall_LR) / (precision_LR + recall_LR), 4)
+
+# Print Metrics for Logistic Regression
+cat("Logistic Regression Accuracy:", accuracy_LR, "\n")
+cat("Logistic Regression Error Rate:", error_rate_LR, "\n")
+cat("Logistic Regression Sensitivity:", sensitivity_LR, "\n")
+cat("Logistic Regression Specificity:", specificity_LR, "\n")
+cat("Logistic Regression Precision:", precision_LR, "\n")
+cat("Logistic Regression Recall:", recall_LR, "\n")
+cat("Logistic Regression F1:", f1_LR, "\n")
+
+```
+
+```{r}
+# Load Libraries
+library(dplyr)
+library(nnet)
+library(caret)
+
+# Set Seed for Reproducibility
+set.seed(7)
+
+# Specify the number of folds for cross-validation
+num_folds <- 5
+
+# Create a data frame to store the results
+results <- data.frame(Actual = integer(0), Predicted = integer(0))
+
+# Perform k-fold cross-validation
+folds <- createFolds(shuffled_data$price_range, k = num_folds)
+for (fold in seq_along(folds)) {
+  train_indices <- unlist(folds[-fold])
+  test_indices <- folds[[fold]]
+  
+  fold_train <- shuffled_data[train_indices, ]
+  fold_test <- shuffled_data[test_indices, ]
+  
+  # Convert the target variable to a factor format
+  fold_train$price_range <- as.factor(fold_train$price_range)
+  fold_test$price_range <- as.factor(fold_test$price_range)
+  
+  # Train the Multinomial Logistic Regression model using multinom
+  logreg_model <- multinom(factor(price_range) ~ .,
+                           data = fold_train[, c("price_range", predictors)])
+  
+  # Predictions on the test set for this fold
+  ypred_logreg <- predict(logreg_model, newdata = fold_test[, c("price_range", predictors)], type = "probs")
+  
+  # Convert probabilities to class labels
+  predicted_classes <- apply(ypred_logreg, 1, which.max)
+  
+  # Store predicted and actual labels
+  fold_results <- data.frame(Actual = fold_test$price_range, Predicted = predicted_classes)
+  results <- rbind(results, fold_results)
+}
+
+# Calculate accuracy (you can use other performance metrics as needed)
+accuracy <- round(sum(results$Predicted == results$Actual) / nrow(results),4)
+cat("Logistic Regression Cross-Validation Accuracy:", accuracy, "\n")
+
+```
+
+```{r}
+
+```
+
+### Naive Bayes Model
+
+```{r}
+# Load Libraries
+library(e1071)
+
+# Set Seed for Reproducibility
+set.seed(7)
+
+# Shuffle the Data
+shuffled_data <- final_mobileTrain[sample(nrow(final_mobileTrain)), ]
+
+# Calculate Training Set Size
+train_ratio <- 0.75
+train_size <- floor(nrow(shuffled_data) * train_ratio)
+
+# Create Training and Test Data Sets
+MobileTrainingNB <- shuffled_data[1:train_size, ]
+MobileTestingNB <- shuffled_data[(train_size + 1):nrow(shuffled_data), ]
+
+# Convert the target variable to a numeric format
+MobileTrainingNB$price_range <- as.numeric(MobileTrainingNB$price_range) - 1
+
+# Specify Predictor Variables
+predictors <- c("battery_power", "four_g", "int_memory", "mobile_wt", "pc", "px_width", "ram", "sc_w", "talk_time", "touch_screen", "wifi")
+
+# Train the Naive Bayes model
+NB_model <- naiveBayes(price_range ~ .,
+                       data = MobileTrainingNB[, c("price_range", predictors)],  # Include price_range and predictor columns
+                       laplace = 1)  
+
+# Convert the test target variable
+MobileTestingNB$price_range <- as.numeric(MobileTestingNB$price_range) - 1
+
+# Predictions on the test set
+ypred_nb <- predict(NB_model, newdata = MobileTestingNB[, c("price_range", predictors)])  # Include price_range and predictor columns
+```
+
+```{r}
+# Confusion matrix
+conf_matrix_NB <- table(Actual = MobileTestingNB$price_range, Predicted = ypred_nb)
+print(conf_matrix_NB)
+
+# Compute accuracy
+accuracy_NB <- round(sum(diag(conf_matrix_NB)) / sum(conf_matrix_NB),4)
+cat("Naive Bayes Accuracy:", accuracy_NB, "\n")
+```
+
+```{r}
+# Confusion matrix for Naive Bayes
+conf_matrix_NB <- table(Actual = MobileTestingNB$price_range, Predicted = ypred_nb)
+
+# Calculate Metrics for Naive Bayes
+accuracy_NB <- round(sum(diag(conf_matrix_NB)) / sum(conf_matrix_NB), 4)
+error_rate_NB <- round(1 - accuracy_NB, 4)
+
+sensitivity_NB <- round(conf_matrix_NB[1, 1] / sum(conf_matrix_NB[1, ]), 4)
+specificity_NB <- round(conf_matrix_NB[2, 2] / sum(conf_matrix_NB[2, ]), 4)
+precision_NB <- round(conf_matrix_NB[1, 1] / sum(conf_matrix_NB[, 1]), 4)
+recall_NB <- sensitivity_NB
+f1_NB <- round(2 * (precision_NB * recall_NB) / (precision_NB + recall_NB), 4)
+
+# Print Metrics for Naive Bayes
+cat("Naive Bayes Accuracy:", accuracy_NB, "\n")
+cat("Naive Bayes Error Rate:", error_rate_NB, "\n")
+cat("Naive Bayes Sensitivity:", sensitivity_NB, "\n")
+cat("Naive Bayes Specificity:", specificity_NB, "\n")
+cat("Naive Bayes Precision:", precision_NB, "\n")
+cat("Naive Bayes Recall:", recall_NB, "\n")
+cat("Naive Bayes F1:", f1_NB, "\n")
+
+```
+
+```{r}
+# Load Libraries
+library(e1071)
+library(caret)
+
+# Set Seed for Reproducibility
+set.seed(7)
+
+# Specify the number of folds for cross-validation
+num_folds <- 5
+
+# Create a data frame to store the results
+results <- data.frame(Actual = integer(0), Predicted = integer(0))
+
+# Perform k-fold cross-validation
+folds <- createFolds(shuffled_data$price_range, k = num_folds)
+for (fold in seq_along(folds)) {
+  train_indices <- unlist(folds[-fold])
+  test_indices <- folds[[fold]]
+  
+  fold_train <- shuffled_data[train_indices, ]
+  fold_test <- shuffled_data[test_indices, ]
+  
+  # Convert the target variable to a factor format
+  fold_train$price_range <- as.factor(fold_train$price_range)
+  fold_test$price_range <- as.factor(fold_test$price_range)
+  
+  # Train the Naive Bayes model
+  NB_model <- naiveBayes(price_range ~ .,
+                         data = fold_train[, c("price_range", predictors)],
+                         laplace = 1)
+  
+  # Predictions on the test set for this fold
+  ypred_nb <- predict(NB_model, newdata = fold_test[, c("price_range", predictors)])
+  
+  # Store predicted and actual labels
+  fold_results <- data.frame(Actual = fold_test$price_range, Predicted = ypred_nb)
+  results <- rbind(results, fold_results)
+}
+
+# Calculate accuracy (you can use other performance metrics as needed)
+accuracy <- round(sum(results$Predicted == results$Actual) / nrow(results),4)
+cat("Naive Bayes Cross-Validation Accuracy:", accuracy, "\n")
+
+```
+
+```{r}
+
+```

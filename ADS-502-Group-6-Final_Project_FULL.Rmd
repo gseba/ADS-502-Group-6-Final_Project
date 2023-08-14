@@ -1212,7 +1212,7 @@ library(pROC)
 
 # Calculate multi-class AUC
 auc_list_KNN <- list()
-for (i in levels(MobileTestingKNN$price_range)) {
+for (i in levels(fold_test$price_range)) {
   # Create vectors of the same length
   response <- as.numeric(MobileTestingKNN$price_range == i)
   predictor <- as.numeric(ypred_knn)[1:nrow(MobileTestingKNN)]

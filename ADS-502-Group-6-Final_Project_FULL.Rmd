@@ -902,12 +902,12 @@ for (i in levels(MobileTesting$price_range)) {
   predictor_C50<- as.numeric(ypred_test)[1:nrow(MobileTesting)]
 
   # Calculate AUC
-  roc_obj <- roc(response, predictor, levels = c(0, 1))
+  roc_obj <- roc(response_C50, predictor_C50, levels = c(0, 1))
   auc_C50_list[[i]] <- auc(roc_obj)
 }
 
 # Calculate average AUC
-auc_C50 <- round(mean(unlist(auc_list)),4)
+auc_C50 <- round(mean(unlist(auc_C50_list)),4)
 
 # Print AUC
 cat("Multi-class AUC for C5.0:", auc_C50, "\n")
@@ -1212,10 +1212,10 @@ library(pROC)
 
 # Calculate multi-class AUC
 auc_list_KNN <- list()
-for (i in levels(fold_test$price_range)) {
+for (i in levels(MobileTestingKNN$price_range)) {
   # Create vectors of the same length
-  response <- as.numeric(fold_test$price_range == i)
-  predictor <- as.numeric(ypred_knn)[1:nrow(fold_test)]
+  response <- as.numeric(MobileTestingKNN$price_range == i)
+  predictor <- as.numeric(ypred_knn)[1:nrow(MobileTestingKNN)]
 
   # Calculate AUC
   roc_obj_KNN <- roc(response, predictor, levels = c(0, 1))
@@ -1373,7 +1373,29 @@ cat("Logistic Regression Cross-Validation Accuracy:", accuracy, "\n")
 ```
 
 ```{r}
+# suppressMessages()
+suppressMessages({
+  
+library(pROC)
 
+# Calculate multi-class AUC
+auc_list_LR <- list()
+for (i in levels(MobileTestingSVM$price_range)) {
+  # Create vectors of the same length
+  response_LR <- as.numeric(MobileTestingLR$price_range == i)
+  predictor_LR <- as.numeric(ypred_logreg)[1:nrow(MobileTestingLR)]
+
+  # Calculate AUC
+  roc_obj_LR <- roc(response_LR, predictor_LR, levels = c(0, 1))
+  auc_list_LR[[i]] <- auc(roc_obj_LR)
+}
+
+# Calculate average AUC
+auc_LR <- round(mean(unlist(auc_list_LR)),4)
+
+# Print AUC
+cat("Multi-class AUC for Logistic Regression:", auc_LR, "\n")
+})
 ```
 
 ### Naive Bayes Model
@@ -1496,5 +1518,27 @@ cat("Naive Bayes Cross-Validation Accuracy:", accuracy, "\n")
 ```
 
 ```{r}
+# suppressMessages()
+suppressMessages({
+  
+library(pROC)
 
+# Calculate multi-class AUC
+auc_list_NB <- list()
+for (i in levels(MobileTestingSVM$price_range)) {
+  # Create vectors of the same length
+  response_NB <- as.numeric(MobileTestingNB$price_range == i)
+  predictor_NB <- as.numeric(ypred_nb)[1:nrow(MobileTestingNB)]
+
+  # Calculate AUC
+  roc_obj_NB <- roc(response_NB, predictor_NB, levels = c(0, 1))
+  auc_list_NB[[i]] <- auc(roc_obj_NB)
+}
+
+# Calculate average AUC
+auc_NB <- round(mean(unlist(auc_list_NB)),4)
+
+# Print AUC
+cat("Multi-class AUC for Naive Bayes:", auc_NB, "\n")
+})
 ```

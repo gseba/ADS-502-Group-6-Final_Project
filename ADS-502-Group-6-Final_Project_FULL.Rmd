@@ -1,9 +1,11 @@
 ---
 title: "ADS-502-Group-6-Final_Project"
-output: html_document
+output:
+  word_document: default
+  html_document: default
 date: "`r Sys.Date()`"
- markdown: 
-    wrap: sentence
+markdown:
+  wrap: sentence
 ---
 
 ```{r setup, include=FALSE}
@@ -15,8 +17,6 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Group 6
 
 ### Dip Raj Bista + Logan Van Dine + Ghassan Seba
-
-*`This data mining project aims to assist a mobile phone company in estimating the price range of their products based on various features such as RAM, Internal Memory, etc. By analyzing historical sales data from different mobile phone companies, the project seeks to uncover relationships between multiple features and ‘selling price.’ The objective is to provide actionable insights enabling the company to price their mobile phones appropriately and become more competitive while utilizing a classification model.`*
 
 ### Import dataset and describe characteristics such as dimensions, data types, file types, missing data, and statistical description of data.
 
@@ -86,39 +86,6 @@ for (i in seq_along(missingTrainTable$Column)) {
 }
 ```
 
-## Data Description:
-
-### Categorical Variables:
-
--   *`blue`*: Binary categorical variable indicating whether the mobile has Bluetooth (0 or 1).
--   *`dual_sim`*: Binary categorical variable indicating whether the mobile has dual SIM capability (0 or 1).
--   *`four_g`*: Binary categorical variable indicating whether the mobile supports 4G (0 or 1).
--   *`three_g`*: Binary categorical variable indicating whether the mobile supports 3G (0 or 1).
--   *`touch_screen`*: Binary categorical variable indicating whether the mobile has a touch screen (0 or 1).
--   *`wifi`*: Binary categorical variable indicating whether the mobile has Wi-Fi capability (0 or 1).
--   *`price_range`*: TARGET VARIABLE; Categorical variable representing the price range of the mobile. It has discrete values (0, 1, 2, 3).
-
-### Integer Variables:
-
--   *`battery_power`*: Discrete integer variable representing the battery power of the mobile.
--   *`fc`*: Discrete integer variable representing the front camera megapixels of the mobile.
--   *`int_memory`*: Discrete integer variable representing the internal memory in GB of the mobile.
--   *`mobile_wt`*: Discrete integer variable representing the weight of the mobile.
--   *`n_cores`*: Discrete integer variable representing the number of cores of the mobile's processor.
--   *`pc`*: Discrete integer variable representing the primary camera megapixels of the mobile.
--   *`px_height`*: Discrete integer variable representing the pixel height of the mobile.
--   *`px_width`*: Discrete integer variable representing the pixel width of the mobile.
--   *`ram`*: Discrete integer variable representing the RAM of the mobile in MB.
--   *`sc_h`*: Discrete integer variable representing the screen height of the mobile.
--   *`sc_w`*: Discrete integer variable representing the screen width of the mobile.
--   *`talk_time`*: Discrete integer variable representing the talk time of the mobile in hours.
--   *`id`*: Discrete integer variable representing the unique ID of the mobile (present in the test dataset).
-
-### Numeric Variables:
-
--   *`clock_speed`*: Continuous numeric variable representing the clock speed of the mobile's processor.
--   *`m_dep`*: Continuous numeric variable representing the mobile depth.
-
 ### Data Distribution
 
 ```{r}
@@ -169,10 +136,6 @@ hist(mobileTrain$ram, main="RAM Frequency of Mobile Phones", xlab="RAM", col="da
 hist(mobileTrain$clock_speed, main="Clock Speed Frequency of Mobile Phones", xlab="Clock Speed", col="lightpink")
 ```
 
-The box-and-whisker plots above prove that normalization is needed for the training data set. Normalization will allow for statistical analysis of all variables in relation to the price range variable on the same scale. Normalization will also allow a better visualization of outliers in the data set and the distribution of variables to be used.
-
-The histograms also prove that normalization is necessary. For example, in a variable such as internal memory, the box-and-whisker plots gave no valuable information about the distribution.
-
 ### Normalize the training Data Set for proper analysis
 
 # Perform Min-Max scaling
@@ -191,7 +154,7 @@ normalized_mobileTrain <- as.data.frame(lapply(mobileTrain[1:20], min_max_norm))
 normalized_mobileTrain$price_range <- mobileTrain$price_range
 
 #Validate normalization and target variable
-head(normalized_mobileTrain)
+#head(normalized_mobileTrain)
 ```
 
 ### Plot normalized continuous variables in training data set
@@ -232,10 +195,6 @@ trainingPlots <- ggplot(mobileTrain_long, aes(x = name, y = value)) +
 print(trainingPlots)
 ```
 
-After normalization, all numeric variables are on a scale 0 to 1. This action allows us to statistically analyze the distribution of variables in comparison to one another. For example, it is now known that battery_power, int_memory, mobile_wt, pc, px_width, ram, sc_h, and talk_time are normally distributed. Normalization also provides insight to which variables contain outliers in the training data set, fc and px_height.
-
-Before correlations between variables can be determined, the outliers need to be identified and potentially removed.
-
 ### Identify outliers in the continuous variables via z-score
 
 ```{r}
@@ -257,10 +216,8 @@ outliers <- z_scores %>%
   dplyr::filter(abs(z_score) > z_score_threshold)
 
 # Print the outliers
-print(outliers)
+# print(outliers)
 ```
-
-A common threshold for z-scores is 3 (positive or negative). With this knowledge, a threshold of 3 has been applied to the normalized numeric variable z-scores. After applying the threshold, we find that there are 12 records in the fc variable that are determined as outliers. As these records only account for 0.6% of the data, they will be removed in the next step.
 
 ### Remove Outliers from data set
 
@@ -427,8 +384,6 @@ ggplot(heatmap_data, aes(x = Variable_1, y = Variable_2, fill = Correlation)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(title = "Correlation Heatmap for Numeric Variables")
 ```
-
-The correlation matrix and heatmap of coefficients do not prove any drastically strong relationships between variables. In terms of multicollinearity, this is a positive for model creation as variables are not too strongly related to predict the target variable. However, in terms of feature selection, there are no obvious selections to be made. A p-value matrix was created to indulge in further statistical analysis. Features will partially be selected based on the statistical significance of the relationship to other variables; not overbearingly strong but not non-existent.
 
 ### Correlation with Target Variable
 
@@ -613,21 +568,66 @@ wifi_table
 ```
 
 ```{r}
-# Bar graphs with price range overlay for each binary variable
+library(ggplot2)
+library(gridExtra)
 
-# Overlay Bargraphs
+# Create the individual bar plots
+plot1 <- ggplot(filtered_factored_mobileTrain, aes(price_range)) +
+  geom_bar(aes(fill = blue)) +
+  ggtitle("Price Range with Bluetooth Overlay") +
+  theme(legend.text = element_text(size = 8),    # Adjust the legend text 
+        axis.text.y = element_text(size = 8),    # Adjust the y-axis text 
+        axis.text.x = element_text(size = 8),    # Adjust the x-axis text 
+        plot.title = element_text(size = 10))    # Adjust the title text 
 
-ggplot(filtered_factored_mobileTrain, aes(price_range)) + geom_bar(aes(fill = blue)) + ggtitle("Price Range with Bluetooth Overlay")
+plot2 <- ggplot(filtered_factored_mobileTrain, aes(price_range)) +
+  geom_bar(aes(fill = dual_sim)) +
+  ggtitle("Price Range with Dual Sim Overlay") +
+  theme(legend.text = element_text(size = 8),      
+        axis.text.y = element_text(size = 8),      
+        axis.text.x = element_text(size = 8),      
+        plot.title = element_text(size = 10))      
 
-ggplot(filtered_factored_mobileTrain, aes(price_range)) + geom_bar(aes(fill = dual_sim)) + ggtitle("Price Range with Dual Sim Overlay")
+plot3 <- ggplot(filtered_factored_mobileTrain, aes(price_range)) +
+  geom_bar(aes(fill = four_g)) +
+  ggtitle("Price Range with 4G Overlay") +
+  theme(legend.text = element_text(size = 8),      
+        axis.text.y = element_text(size = 8),      
+        axis.text.x = element_text(size = 8),      
+        plot.title = element_text(size = 10))      
 
-ggplot(filtered_factored_mobileTrain, aes(price_range)) + geom_bar(aes(fill = four_g)) + ggtitle("Price Range with 4G Overlay")
+plot4 <- ggplot(filtered_factored_mobileTrain, aes(price_range)) +
+  geom_bar(aes(fill = three_g)) +
+  ggtitle("Price Range with 3G Overlay") +
+  theme(legend.text = element_text(size = 8),      
+        axis.text.y = element_text(size = 8),      
+        axis.text.x = element_text(size = 8),      
+        plot.title = element_text(size = 10))      
 
-ggplot(filtered_factored_mobileTrain, aes(price_range)) + geom_bar(aes(fill = three_g)) + ggtitle("Price Range with 3G Overlay")
+plot5 <- ggplot(filtered_factored_mobileTrain, aes(price_range)) +
+  geom_bar(aes(fill = touch_screen)) +
+  ggtitle("Price Range with Touch Screen Overlay") +
+  theme(legend.text = element_text(size = 8),      
+        axis.text.y = element_text(size = 8),      
+        axis.text.x = element_text(size = 8),      
+        plot.title = element_text(size = 10))      
 
-ggplot(filtered_factored_mobileTrain, aes(price_range)) + geom_bar(aes(fill = touch_screen)) + ggtitle("Price Range with Touch Screen Overlay")
+plot6 <- ggplot(filtered_factored_mobileTrain, aes(price_range)) +
+  geom_bar(aes(fill = wifi)) +
+  ggtitle("Price Range with Wifi Overlay") +
+  theme(legend.text = element_text(size = 8),      
+        axis.text.y = element_text(size = 8),      
+        axis.text.x = element_text(size = 8),      
+        plot.title = element_text(size = 10))      
 
-ggplot(filtered_factored_mobileTrain, aes(price_range)) + geom_bar(aes(fill = wifi)) + ggtitle("Price Range with Wifi Overlay")
+# Arrange plots in a 3x2 matrix
+grid.arrange(
+  arrangeGrob(plot1, plot2, ncol = 2),
+  arrangeGrob(plot3, plot4, ncol = 2),
+  arrangeGrob(plot5, plot6, ncol = 2),
+  ncol = 1
+)
+
 ```
 
 ### Chi-Squared Test on Binary Variables against Target variable
@@ -660,34 +660,12 @@ kable(chi_squared_results_df, format = "html", caption = "Chi-Squared Test Resul
 
 ### Feature Selection
 
-Explanation (p-value, covariance, similar variables, business rules, etc.)
-
-4G, touch screen, wifi = domain knowledge/business rules
-
-RAM, battery_power = correlation w/ target variable
-
-px_width, sc_w = covariance is very similar to heights, no loss with those variables, simultaneously more correlated to price (px_width is also normally distributed)
-
-pc = highest correlation with fc, normally distributed, simultaneously higher correlation to price, no loss in fc (same function in mobile phone)
-
-talk_time, mobile_wt, internal_memory = normally distributed variables, low correlations across variables (as phone gets lighter, phone gets more expensive)
-
-REMOVE blue, dual_sim, three_g, fc, n_cores, px_height, sc_h, clock_speed, m_dep
-
 ```{r}
 # Remove variables that will not be used in model
 
 final_mobileTrain = subset(filtered_mobileTrain, select = -c(blue, dual_sim, three_g, fc, n_cores, px_height, sc_h, clock_speed, m_dep) )
 
 ```
-
-### Hypothesis
-
-Ho - Null hypothesis, there is no relationship between predictor variables in final_mobileTrain and target variable, price_range
-
-Ha - Alternative hypothesis, contradicts null, there is a statistically significant relationship between the target variables
-
-"model results reject \_\_\_ hypothesis in favor of \_\_\_ hypothesis"
 
 ### Baseline Model (Biggest Category Model "Data Science Using Python and R")
 
@@ -784,9 +762,6 @@ print(C5_conf_matrix)
 # Compute accuracy
 C5_accuracy <- round(sum(diag(C5_conf_matrix)) / sum(C5_conf_matrix),4)
 cat("C5.0 Accuracy:", C5_accuracy, "\n")
-```
-
-```         
 ```
 
 ```{r}
@@ -995,13 +970,13 @@ recall <- sensitivity
 f1 <- round(2 * (precision * recall) / (precision + recall), 4)
 
 # Print Metrics
-cat("Accuracy:", accuracy, "\n")
-cat("Error Rate:", error_rate, "\n")
-cat("Sensitivity:", sensitivity, "\n")
-cat("Specificity:", specificity, "\n")
-cat("Precision:", precision, "\n")
-cat("Recall:", recall, "\n")
-cat("F1:", f1, "\n")
+cat("SVM Accuracy:", accuracy, "\n")
+cat("SVM Error Rate:", error_rate, "\n")
+cat("SVM Sensitivity:", sensitivity, "\n")
+cat("SVM Specificity:", specificity, "\n")
+cat("SVM Precision:", precision, "\n")
+cat("SVM Recall:", recall, "\n")
+cat("SVM F1:", f1, "\n")
 
 ```
 
